@@ -1,109 +1,101 @@
-import pygame
-import math, random, time
+import pygame, math, time
+import settings
+import scripts.player, scripts.enemies
 
 
-pygame.init()
-screen = pygame.display.set_mode((1280, 720))
-pygame.display.set_caption('Pursuit')
-done = False
+def play(screen):
 
-clock = pygame.time.Clock()
+    road_image = pygame.image.load('img/road.png')
+    road_width = road_image.get_width()
 
-road_image = pygame.image.load('img/road.png')
-road_width = road_image.get_width()
-over_image = pygame.image.load('img/over.png')
+    font = pygame.font.Font(None, 64)
+    count = 0
 
-class Player(pygame.sprite.Sprite):
-    def __init__(self):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load("img/car_1.png")
-        self.rect = self.image.get_rect()
-        self.rect.x = 20
-        self.rect.y = screen.get_height() / 2
-        self.vy = 0
-    def update(self):
-        self.vy = 0
-        key = pygame.key.get_pressed()
-        if key[pygame.K_UP]:
-            self.vy = -3
-        elif key[pygame.K_DOWN]:
-            self.vy = 3
-        if self.rect.y >= 630:
-            self.rect.y = 620
-        elif self.rect.y <= 0:
-            self.rect.y = 10
-        else:
-            self.rect.y += self.vy
+    done = False
+    gameover = False
 
-sprites = pygame.sprite.Group()
-player = Player()
-sprites.add(player)
+    tiles = math.ceil(screen.get_width() / road_width) + 1
+    scroll = 0
 
-win = False
+    player = scripts.player.Player()
+    player.rect.y = screen.get_height()//2
+    player_group = pygame.sprite.Group()
+    player_group.add(player)
+
+    enemy_timer = pygame.USEREVENT + 1
+    pygame.time.set_timer(enemy_timer, 1000)
+
+    clock = pygame.time.Clock()
+
+    
+    while not done:
+        while not gameover and not done:
+
+            events = pygame.event.get()
+            keys = pygame.key.get_pressed()
+
+            for i in range(0, tiles):
+                screen.blit(road_image, (i * road_width + scroll, 0))
+            scroll -= 2
+            if abs(scroll) > road_width:
+                scroll = 0
+            
+            for event in events:
+                if event.type == pygame.QUIT:
+                    done = True
+                if event.type == enemy_timer:
+                    scripts.enemies.Enemy(player.rect.y)
+
+            if keys[pygame.K_UP]:
+                player.to_up()
+            elif keys[pygame.K_DOWN]:
+                player.to_down()
 
 
-class Musor(pygame.sprite.Sprite):
-    def __init__(self):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load("img/mus_car.png")
-        self.rect = self.image.get_rect()
-        self.rect.x = 1240
-        self.rect.y = random.randint(40, 590)
-        self.vx = 0
-    def update(self):
-        self.vx = -3
-        self.rect.x += self.vx
+            if player.check_coll(scripts.enemies.enemies_group):
+                gameover = True
 
-musors = pygame.sprite.Group()
+            count += player.update_count(scripts.enemies.enemies_group)
 
-tiles = math.ceil(screen.get_width() / road_width) + 1
-scroll = 0
+            text = font.render(f"Points {count}", True, (0, 0, 0))
 
-musor = Musor()
-musors.add(musor)
+            text_rect = text.get_rect(x=70, y=40)
 
-def spawn_musor():
-    musor = Musor()
-    musors.add(musor)
+            player_group.update()
+            scripts.enemies.enemies_group.update()
 
-musor_timer = pygame.USEREVENT + 1
-pygame.time.set_timer(musor_timer, 1000)
+            screen.blit(text, text_rect)
+            player_group.draw(screen)
+            scripts.enemies.enemies_group.draw(screen)
 
-game_over = False
-while not done:
-    while not game_over:
-        for i in range(0, tiles):
-            screen.blit(road_image, (i * road_width + scroll, 0))
-        scroll -= 2
 
-        sprites.update()
-        sprites.draw(screen)
+            pygame.display.update()
 
-        musors.update()
-        musors.draw(screen)
+        if gameover:
+            [e.kill() for e in scripts.enemies.enemies_group]
+            
+            gameover_img = pygame.image.load('img/over.jpeg')
+            gameover_img = pygame.transform.scale(gameover_img, (1280, 720))
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    done = True
+                if event.type == 1025:
+                    gameover = False
+                    player =  None
+                    play(screen)
 
-        if abs(scroll) > road_width:
-            scroll = 0
+            screen.blit(gameover_img, (0, 0))
+            pygame.display.update()
 
-        hits = pygame.sprite.spritecollide(player, musors, True)
-        if hits:
-            game_over = True
 
-        keys = pygame.key.get_pressed()
+def main():
+    pygame.init()
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                done = True
-            if event.type == musor_timer:
-                spawn_musor()
+    screen = pygame.display.set_mode((1280, 720))
+    pygame.display.set_caption('Game')
 
-        pygame.display.update()
-    else:
-        screen.blit(over_image, (0,0))
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                done = True
-        pygame.display.update()
+    play(screen)
 
-    time.sleep(2)
-    game_over = False
+
+if __name__ == '__main__':
+    main()
